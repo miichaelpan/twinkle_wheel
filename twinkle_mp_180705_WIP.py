@@ -21,7 +21,7 @@ file_name = "draw_test_"+str(rotation_per_frame)+".jpg"
 fibers= []
 coord = []
 n_drops = 0
-delay_in_ms = 150
+delay_in_ms = 200
 
 
 
@@ -70,7 +70,7 @@ def main():
 
     # listy = get_gif_list(file_name, frames)
 
-    # get_intensity_ratio_plot(intensity_ratio)
+    get_intensity_ratio_plot(intensity_ratio)
     # print(intensity_ratio)
     generate_plot(viewport_image, frames, frames_rand)
 
@@ -186,8 +186,9 @@ def get_frames(norm_image, contour_image, frame_format="PIL"):
     contour_w = len(contour_np[0])
     for i in range(int(360/rotation_per_frame)):
         degrees = int(i * rotation_per_frame)
-        normalized_disk_image, nothing = get_disk_image(contour_image, degrees, contour_w, contour_h, image_viewport_w, image_viewport_h)
+        normalized_disk_image = get_disk_image(contour_image, degrees, contour_w, contour_h, image_viewport_w, image_viewport_h)
         binary_normalized_image = np.array(normalized_disk_image.convert('L'))
+        # normalized_disk_image = np.array(normalized_disk_image)
         # Create np.zero arrays for new frames
         new_f = np.zeros((image_viewport_w, image_viewport_h), np.uint8)
         new_f_rand = np.zeros((image_viewport_w, image_viewport_h), np.uint8)
@@ -196,25 +197,50 @@ def get_frames(norm_image, contour_image, frame_format="PIL"):
         count_of_intensity = 0
         for x_point in range(image_viewport_w):
             for y_point in range(image_viewport_h):
+                # only save the point and update the intensity calculator if viewport lets it through
                 if viewport_np[x_point, y_point] > 256/2:
-                    count_of_white_pixels += 1
-                    if binary_normalized_image[x_point, y_point] > 256/2:
-                        count_of_intensity += 1
-                        new_f[x_point, y_point] = 255
-                        coded_index = random_map_np[x_point, y_point]
-                        random_x_point = int(coded_index % image_viewport_h)
-                        random_y_point = int((coded_index - y_point) / image_viewport_w)
-                        new_f_rand[random_x_point, random_y_point] = 255
-                    else:
-                        coded_index = random_map_np[x_point, y_point]
-                        new_f[x_point,y_point] = 0
-                else:
-                    new_f[x_point, y_point] = 0
-                    new_f_rand[x_point, y_point] = 0
+                    point_intensity = binary_normalized_image[x_point, y_point]
+                    new_f[x_point, y_point] = point_intensity
+                    coded_index = random_map_np[x_point, y_point]
+                    random_x_point = int(coded_index % image_viewport_h)
+                    random_y_point = int((coded_index - y_point) / image_viewport_w)
+                    new_f_rand[random_x_point, random_y_point] = point_intensity
+                    # calculate the new intensity based on point_intensity/255 instead of (0 or 1)/1
+                    count_of_white_pixels += 255
+                    count_of_intensity += point_intensity
+    # for i in range(int(360/rotation_per_frame)):
+    #     degrees = int(i * rotation_per_frame)
+    #     normalized_disk_image = get_disk_image(contour_image, degrees, contour_w, contour_h, image_viewport_w, image_viewport_h)
+    #     binary_normalized_image = np.array(normalized_disk_image.convert('L'))
+    #     normalized_disk_image_array = np.array(normalized_disk_image.convert('L'))
+    #     # Create np.zero arrays for new frames
+    #     new_f = np.zeros((image_viewport_w, image_viewport_h), np.uint8)
+    #     new_f_rand = np.zeros((image_viewport_w, image_viewport_h), np.uint8)
+    #     # Initialize pixel count
+    #     count_of_white_pixels = 0
+    #     count_of_intensity = 0
+    #     for x_point in range(image_viewport_w):
+    #         for y_point in range(image_viewport_h):
+    #             if viewport_np[x_point, y_point] > 256/2:
+    #                 count_of_white_pixels += 1
+    #                 if binary_normalized_image[x_point, y_point] > 256/2:
+    #                     count_of_intensity += 1
+    #                     new_f[x_point, y_point] = normalized_disk_image_array[x_point, y_point]
+    #                     coded_index = random_map_np[x_point, y_point]
+    #                     random_x_point = int(coded_index % image_viewport_h)
+    #                     random_y_point = int((coded_index - y_point) / image_viewport_w)
+    #                     new_f_rand[random_x_point, random_y_point] = normalized_disk_image_array[x_point, y_point]
+                    # else:
+                    #     coded_index = random_map_np[x_point, y_point]
+                    #     new_f[x_point,y_point] = binary_normalized_image[x_point, y_point]
+                # else:
+                #     new_f[x_point, y_point] = normalized_disk_image[x_point, y_point]
+                #     new_f_rand[x_point, y_point] = normalized_disk_image[x_point, y_point]
         # Will need function to convert from array to L to RGB and flip
         # for both frames and frames_rand
         frames.append(new_f)
         frames_rand.append(new_f_rand)
+        # average_light.append(average_light)
         intensity_count = count_of_intensity/count_of_white_pixels * 100
         intensity_ratio.append(float('{0:.2f}'.format(intensity_count)))
         # print(intensity_ratio)
@@ -231,12 +257,13 @@ def get_disk_image(contour_image, degrees, image_w, image_h, image_viewport_w, i
     disk_image = disk_image.crop(viewport_tuple)
     norm_disk_image = disk_image.resize((image_viewport_w, image_viewport_h), Image.ANTIALIAS)
     # disk_image.show()
-    return norm_disk_image, disk_image
+    return norm_disk_image
 
 
 
 def generate_plot(base_image, frames, frames_rand):
     plt.style.use('dark_background')
+    # print(frames_rand[3])
     total_pixels_list = get_list_of_total_shown_pixels(base_image)
     n_drops = len(total_pixels_list)
     # Re-calculate because not a perfect square for plotting
@@ -261,6 +288,7 @@ def generate_plot(base_image, frames, frames_rand):
     fibers = np.zeros(n_drops, dtype = [('position', float, 2),
                                     ('size', float, 1),
                                     ('growth', float, 1),
+                                    ('decay', float, 1), 
                                     ('color', float, 4)])
 
 
@@ -273,6 +301,7 @@ def generate_plot(base_image, frames, frames_rand):
     # Scatter plot points
     def update(frame_number):
         frame_index = frame_number % len(frames_rand)
+        # current_frame = frames_rand[frame_index]
         current_frame = frames_rand[frame_index]
         for drop in range(n_drops):
             coded_index = total_pixels_list[drop]
@@ -280,18 +309,26 @@ def generate_plot(base_image, frames, frames_rand):
             frame_w = len(current_frame[0])
             random_y_point = int(coded_index % frame_h)
             random_x_point = int((coded_index - random_y_point) / frame_w)
-            dot_size = fibers['size'][drop]  - int(intensity/2)
-            # fibers['color'][drop] = (1, 1, 1, 1)
-            fibers['color'][drop] = (1, 1, 1 ,0.5)
-            if current_frame[random_x_point, random_y_point] != 0:
-                dot_size = 1 * intensity
-            # fibers['color'][drop] -= 2.0/len(fibers)
-            fibers['growth'][drop] = intensity/3
+            dot_size = fibers['size'][drop]  #- int(intensity/3)
+            # fibers['color'][drop] = (0, 0, 0, 1)
+            # if current_frame[random_x_point, random_y_point] != 0:
+            #     # fibers['decay'][drop] = 1
+            #     fibers['decay'][drop] = int(current_frame[random_x_point, random_y_point])/255.0
+            # else:
+            #     # fibers['decay'][drop] = 0.27
+            #     # fibers['decay'][drop] = int(fibers['decay'][drop])/2.0
+            #     fibers['decay'][drop] = int(current_frame[random_x_point, random_y_point])/255.0
+            fibers['decay'][drop] = int(current_frame[random_x_point, random_y_point])/255.0
+            dot_size = 1 * intensity
+            fibers['color'][drop] = (fibers['decay'][drop], fibers['decay'][drop], fibers['decay'][drop], 1)
+            fibers['growth'][drop] = intensity/2
             fibers['size'][drop] = dot_size
             fibers['position'][drop] = coord[drop]
         
+        print(current_frame[random_x_point, random_y_point])
         # Update the scatter collection with the new colors, size, and positions
         scat.set_edgecolors(fibers['color'])
+        scat.set_facecolors(fibers['color'])
         scat.set_sizes(fibers['size'])
         scat.set_offsets(fibers['position'])
 
